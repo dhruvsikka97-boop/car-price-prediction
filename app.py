@@ -9,7 +9,7 @@ st.header('Car Price Prediction ML Model')
 # ── Load & prepare data ────────────────────────────────────────────────────────
 @st.cache_resource
 def load_model():
-    cars = pd.read_csv('Car_details__1_.csv')
+    cars = pd.read_csv('Car_details.csv')
     cars = cars.drop(columns=['torque'], errors='ignore')
     cars = cars.dropna().drop_duplicates()
 
@@ -41,7 +41,7 @@ def load_model():
 
 @st.cache_data
 def load_data():
-    cars = pd.read_csv('Car_details__1_.csv')
+    cars = pd.read_csv('Car_details.csv')
     cars['name'] = cars['name'].apply(lambda x: x.split(' ')[0].strip())
     return cars
 
