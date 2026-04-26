@@ -6,49 +6,72 @@ import streamlit as st
 
 st.header('Car Price Prediction ML Model')
 
-# ── Load & prepare data ────────────────────────────────────────────────────────
+def clean_unit(val):
+    try:
+        val = str(val).strip()
+        if val == '' or val == 'nan':
+            return np.nan
+        parts = val.split()
+        if len(parts) == 0:
+            return np.nan
+        return float(parts[0])
+    except:
+        return np.nan
+
 @st.cache_resource
 def load_model():
     cars = pd.read_csv('Car_details.csv')
     cars = cars.drop(columns=['torque'], errors='ignore')
-    cars = cars.dropna().drop_duplicates()
+    cars = cars.dropna().drop_duplicates().reset_index(drop=True)
 
-    cars['name'] = cars['name'].apply(lambda x: x.split(' ')[0].strip())
+    cars['name'] = cars['name'].apply(lambda x: str(x).split(' ')[0].strip())
 
-    for col in ['mileage', 'engine', 'max_power']:
-        cars[col] = cars[col].apply(lambda x: float(str(x).split()[0]) if str(x).split()[0] not in ['', 'nan'] else np.nan)
+    cars['mileage']   = [clean_unit(v) for v in cars['mileage']]
+    cars['engine']    = [clean_unit(v) for v in cars['engine']]
+    cars['max_power'] = [clean_unit(v) for v in cars['max_power']]
 
-    cars = cars.dropna()
+    cars = cars.dropna().reset_index(drop=True)
 
-    cars['owner']        = cars['owner'].map({'First Owner':1,'Second Owner':2,'Third Owner':3,'Fourth & Above Owner':4,'Test Drive Car':5})
-    cars['fuel']         = cars['fuel'].map({'Diesel':1,'Petrol':2,'LPG':3,'CNG':4})
-    cars['seller_type']  = cars['seller_type'].map({'Individual':1,'Dealer':2,'Trustmark Dealer':3})
-    cars['transmission'] = cars['transmission'].map({'Manual':1,'Automatic':2})
-    cars['name']         = cars['name'].map({'Maruti':1,'Skoda':2,'Honda':3,'Hyundai':4,'Toyota':5,'Ford':6,'Renault':7,
-                                              'Mahindra':8,'Tata':9,'Chevrolet':10,'Datsun':11,'Jeep':12,'Mercedes-Benz':13,
-                                              'Mitsubishi':14,'Audi':15,'Volkswagen':16,'BMW':17,'Nissan':18,'Lexus':19,
-                                              'Jaguar':20,'Land':21,'MG':22,'Volvo':23,'Daewoo':24,'Kia':25,'Fiat':26,
-                                              'Force':27,'Ambassador':28,'Ashok':29,'Isuzu':30,'Opel':31,'Peugeot':32})
-    cars = cars.dropna()
+    owner_map        = {'First Owner':1,'Second Owner':2,'Third Owner':3,'Fourth & Above Owner':4,'Test Drive Car':5}
+    fuel_map         = {'Diesel':1,'Petrol':2,'LPG':3,'CNG':4}
+    seller_map       = {'Individual':1,'Dealer':2,'Trustmark Dealer':3}
+    transmission_map = {'Manual':1,'Automatic':2}
+    name_map         = {'Maruti':1,'Skoda':2,'Honda':3,'Hyundai':4,'Toyota':5,'Ford':6,'Renault':7,
+                        'Mahindra':8,'Tata':9,'Chevrolet':10,'Datsun':11,'Jeep':12,'Mercedes-Benz':13,
+                        'Mitsubishi':14,'Audi':15,'Volkswagen':16,'BMW':17,'Nissan':18,'Lexus':19,
+                        'Jaguar':20,'Land':21,'MG':22,'Volvo':23,'Daewoo':24,'Kia':25,'Fiat':26,
+                        'Force':27,'Ambassador':28,'Ashok':29,'Isuzu':30,'Opel':31,'Peugeot':32}
+
+    cars['owner']        = cars['owner'].map(owner_map)
+    cars['fuel']         = cars['fuel'].map(fuel_map)
+    cars['seller_type']  = cars['seller_type'].map(seller_map)
+    cars['transmission'] = cars['transmission'].map(transmission_map)
+    cars['name']         = cars['name'].map(name_map)
+
+    cars = cars.dropna().reset_index(drop=True)
+
+    cars['mileage']   = cars['mileage'].astype(float)
+    cars['engine']    = cars['engine'].astype(float)
+    cars['max_power'] = cars['max_power'].astype(float)
+    cars['seats']     = cars['seats'].astype(float)
 
     X = cars[['name','year','km_driven','fuel','seller_type','transmission','owner','mileage','engine','max_power','seats']]
     y = cars['selling_price']
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-    return model
+    mdl = LinearRegression()
+    mdl.fit(X_train, y_train)
+    return mdl
 
 @st.cache_data
 def load_data():
     cars = pd.read_csv('Car_details.csv')
-    cars['name'] = cars['name'].apply(lambda x: x.split(' ')[0].strip())
+    cars['name'] = cars['name'].apply(lambda x: str(x).split(' ')[0].strip())
     return cars
 
-model    = load_model()
+model     = load_model()
 cars_data = load_data()
 
-# ── Input widgets ──────────────────────────────────────────────────────────────
 name         = st.selectbox('Select Car Brand', sorted(cars_data['name'].unique()))
 year         = st.slider('Car Manufactured Year', 1994, 2024)
 km_driven    = st.slider('No of kms Driven', 11, 200000)
@@ -61,7 +84,6 @@ engine       = st.slider('Engine CC', 700, 3604)
 max_power    = st.slider('Max Power (bhp)', 0, 400)
 seats        = st.slider('No of Seats', 2, 14)
 
-# ── Prediction ─────────────────────────────────────────────────────────────────
 if st.button("Predict"):
     owner_map        = {'First Owner':1,'Second Owner':2,'Third Owner':3,'Fourth & Above Owner':4,'Test Drive Car':5}
     fuel_map         = {'Diesel':1,'Petrol':2,'LPG':3,'CNG':4}
@@ -74,15 +96,16 @@ if st.button("Predict"):
                         'Force':27,'Ambassador':28,'Ashok':29,'Isuzu':30,'Opel':31,'Peugeot':32}
 
     input_data = pd.DataFrame([[
-        name_map.get(name, 1), year, km_driven, fuel_map.get(fuel, 1),
-        seller_map.get(seller_type, 1), transmission_map.get(transmission, 1),
-        owner_map.get(owner, 1), mileage, engine, max_power, seats
-    ]], columns=['name','year','km_driven','fuel','seller_type','transmission','owner','mileage','engine','max_power','seats'])
+        name_map.get(name, 1), year, km_driven,
+        fuel_map.get(fuel, 1), seller_map.get(seller_type, 1),
+        transmission_map.get(transmission, 1), owner_map.get(owner, 1),
+        float(mileage), float(engine), float(max_power), float(seats)
+    ]], columns=['name','year','km_driven','fuel','seller_type','transmission',
+                 'owner','mileage','engine','max_power','seats'])
 
     car_price = model.predict(input_data)
     st.success(f'🚗 Estimated Car Price: ₹{round(car_price[0], 2):,}')
 
-# ── Depreciation Calculator ────────────────────────────────────────────────────
 st.header("Car Depreciation Calculator")
 
 depr_rates = {
